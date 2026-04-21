@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>嘉義日常飲食地圖 - 藝術插畫版</title>
+    <title>嘉義日常飲食地圖 - 藝術插畫與集章版</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <!-- Google Fonts -->
+    <!-- Google Fonts & FontAwesome -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
             --brand-orange: #f47321;
@@ -17,111 +18,284 @@
             --brand-dark: #1a1a1a;
             --brand-gray: #e5e5e5;
         }
-        body {
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
             font-family: 'Noto Sans TC', sans-serif;
             background-color: var(--brand-beige);
             color: var(--brand-dark);
+            overflow: hidden;
         }
-        #map {
-            height: 600px;
+        
+        /* 導航頁樣式 */
+        #landing-page {
+            position: absolute;
+            top: 0;
+            left: 0;
             width: 100%;
-            border-radius: 4px;
+            height: 100%;
+            display: flex;
+            background-color: var(--brand-beige);
+            transition: opacity 0.5s ease-in-out, visibility 0.5s;
+            z-index: 50;
+            overflow: hidden;
+        }
+        .landing-content {
+            max-width: 1200px;
+            margin: auto;
+            padding: 2rem;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 2rem;
+        }
+        .huge-text {
+            font-size: clamp(3rem, 12vw, 8rem);
+            line-height: 0.85;
+        }
+
+        /* 路徑動畫樣式 */
+        .path-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+            opacity: 0.6;
+        }
+        .draw-path {
+            stroke-dasharray: 2000;
+            stroke-dashoffset: 2000;
+            animation: draw 3s ease-out forwards;
+        }
+        @keyframes draw { to { stroke-dashoffset: 0; } }
+        .floating-bubble { animation: float 4s ease-in-out infinite; }
+        @keyframes float {
+            0%, 100% { transform: translateY(0px) scale(1); }
+            50% { transform: translateY(-15px) scale(1.05); }
+        }
+
+        /* 地圖頁樣式 */
+        #map-page {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.5s ease-in-out, visibility 0.5s;
+            z-index: 40;
+        }
+
+        #map {
+            height: 100%;
+            width: 100%;
             z-index: 1;
             filter: grayscale(1) sepia(0.2) contrast(0.9) brightness(1.05);
         }
-        .leaflet-container {
-            background: var(--brand-beige);
-        }
+        .leaflet-container { background: var(--brand-beige); }
         .custom-popup .leaflet-popup-content-wrapper {
             background-color: var(--brand-beige);
             border-radius: 0;
             box-shadow: 4px 4px 0px var(--brand-dark);
             border: 1px solid var(--brand-dark);
         }
-        .custom-popup .leaflet-popup-tip {
-            background: var(--brand-dark);
-        }
+
+        /* 店家卡片 */
         .shop-card {
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             border-bottom: 1px solid var(--brand-gray);
         }
-        .shop-card:hover {
-            background-color: white;
-            padding-left: 1.5rem;
-        }
+        .shop-card:hover { background-color: white; padding-left: 1.5rem; }
         .shop-card.active {
             background-color: white;
             border-bottom-color: var(--brand-dark);
             box-shadow: inset 8px 0 0 var(--active-color);
         }
-        .no-scrollbar::-webkit-scrollbar {
-            display: none;
+
+        /* 集章卡片樣式 */
+        .stamp-card {
+            background: white;
+            border: 2px solid var(--brand-dark);
+            box-shadow: 8px 8px 0px var(--brand-dark);
+            transition: all 0.3s;
         }
-        .no-scrollbar {
-            -ms-overflow-style: none;
-            scrollbar-width: none;
+        .stamp-card.checked {
+            opacity: 0.6;
+            filter: grayscale(0.5);
+            box-shadow: 2px 2px 0px var(--brand-dark);
+            transform: translate(4px, 4px);
         }
-        .vertical-text {
-            writing-mode: vertical-rl;
-            text-orientation: mixed;
+        .stamp-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-15deg);
+            border: 4px solid currentColor;
+            padding: 4px 12px;
+            font-weight: 900;
+            text-transform: uppercase;
+            pointer-events: none;
+            z-index: 10;
         }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .vertical-text { writing-mode: vertical-rl; text-orientation: mixed; }
+        .dot-pattern {
+            background-image: radial-gradient(var(--brand-dark) 1px, transparent 1px);
+            background-size: 20px 20px; opacity: 0.1;
+        }
+
+        .floating-nav-btn { box-shadow: 4px 4px 0px var(--brand-dark); transition: all 0.2s; }
+        .floating-nav-btn:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0px var(--brand-dark); }
+
+        @keyframes steam {
+            0% { transform: translateY(0); opacity: 0; }
+            50% { opacity: 0.5; }
+            100% { transform: translateY(-15px); opacity: 0; }
+        }
+        .steam-line { animation: steam 2s infinite; }
+        
+        .progress-bar-fill { transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); }
     </style>
 </head>
 <body class="antialiased">
 
-    <div class="flex flex-col min-h-screen">
-        <div class="flex flex-col lg:flex-row flex-1">
+    <!-- 噴發效果容器 -->
+    <div id="confetti" class="fixed inset-0 pointer-events-none z-[100] flex items-center justify-center hidden">
+        <div class="text-6xl animate-bounce">✨</div>
+    </div>
+
+    <!-- 導航首頁 (Landing Page) -->
+    <section id="landing-page" class="relative">
+        <div class="absolute inset-0 dot-pattern"></div>
+        <div class="path-container">
+            <svg width="100%" height="100%" viewBox="0 0 1000 800" preserveAspectRatio="xMidYMid slice" fill="none">
+                <path d="M-50 600 C 150 600, 300 650, 450 600 S 750 400, 950 500 S 1100 200, 1100 0" stroke="#E5E5E5" stroke-width="40" stroke-linecap="round" opacity="0.3"/>
+                <path class="draw-path" d="M-50 600 C 150 600, 300 650, 450 600 S 750 400, 950 500 S 1100 200, 1100 0" stroke="#f47321" stroke-width="2" stroke-linecap="round"/>
+                <g class="floating-bubble">
+                    <rect x="120" y="570" width="40" height="40" fill="#f47321" />
+                    <text x="140" y="595" fill="white" font-size="14" font-weight="900" text-anchor="middle">01</text>
+                </g>
+                <g class="floating-bubble" style="animation-delay: 1s;">
+                    <circle cx="400" cy="620" r="30" fill="#f47321" />
+                    <text x="400" y="625" fill="white" font-size="14" font-weight="900" text-anchor="middle">03</text>
+                </g>
+                <text x="80" y="740" fill="#CBD5E1" font-size="14" font-weight="900" letter-spacing="4">DISCOVER THE TASTE</text>
+            </svg>
+        </div>
+        <div class="landing-content relative z-10 flex flex-col lg:flex-row items-center justify-between">
+            <div class="w-full lg:flex-1 text-center lg:text-left">
+                <div class="mb-4">
+                    <span class="text-orange-500 font-black tracking-[0.3em] text-sm uppercase">Daily Food Map / Chiayi</span>
+                </div>
+                <h1 class="huge-text font-black text-slate-900 tracking-tighter mb-8">嘉義<br><span class="text-slate-200">日常</span></h1>
+                <p class="text-lg md:text-xl font-medium tracking-widest text-slate-500 mb-12 mx-auto lg:mx-0 max-w-md">探索城市角落中的印尼與越南風味，一場關於味蕾的跨國日常紀錄。</p>
+                <button onclick="enterSite()" class="group relative px-10 py-4 bg-slate-900 text-white font-black tracking-[0.2em] transition-all hover:translate-x-2 hover:-translate-y-2">
+                    START EXPLORING
+                    <div class="absolute inset-0 border border-slate-900 -z-10 translate-x-2 translate-y-2 group-hover:translate-x-0 group-hover:translate-y-0 transition-transform"></div>
+                </button>
+            </div>
+            <div class="hidden lg:flex flex-1 justify-center relative">
+                <div class="w-80 h-[520px] bg-orange-500 relative shadow-[20px_20px_0px_rgba(0,0,0,1)] overflow-hidden">
+                    <div class="absolute inset-0 flex items-center justify-center z-10">
+                        <div class="vertical-text font-black text-2xl text-white tracking-[0.4em] leading-none">
+                            INDONESIA 印尼 <span class="text-slate-900 text-3xl my-2">X</span> VIETNAM 越南
+                        </div>
+                    </div>
+                    <div class="absolute bottom-0 left-0 w-full flex justify-center z-20 pointer-events-none">
+                        <svg width="220" height="130" viewBox="0 0 200 120" fill="none">
+                            <path d="M30 40C30 40 30 90 100 90C170 90 170 40 170 40H30Z" fill="white" stroke="#1a1a1a" stroke-width="3"/>
+                            <rect x="75" y="90" width="50" height="6" fill="#1a1a1a" />
+                            <line x1="140" y1="15" x2="180" y2="55" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round"/>
+                            <line x1="150" y1="10" x2="190" y2="50" stroke="#1a1a1a" stroke-width="4" stroke-linecap="round"/>
+                        </svg>
+                    </div>
+                    <div class="absolute bottom-16 -right-12 w-48 h-8 bg-emerald-500 border-2 border-slate-900 z-10"></div>
+                </div>
+            </div>
+        </div>
+        <div class="absolute bottom-0 left-0 w-full h-4 bg-slate-900"></div>
+    </section>
+
+    <!-- 地圖主頁 (Map Page) -->
+    <div id="map-page">
+        <div class="flex flex-col lg:flex-row flex-1 overflow-hidden h-full">
             
-            <!-- 側邊欄 (左) -->
-            <aside class="w-full lg:w-[400px] bg-white border-r border-slate-200 flex flex-col z-20 shadow-xl">
-                <div class="p-8 border-b border-slate-100">
-                    <div class="flex items-baseline gap-2 mb-2">
-                        <span class="text-5xl font-black tracking-tighter text-slate-200">01</span>
-                        <h1 class="text-3xl font-black tracking-widest text-slate-900">嘉義</h1>
+            <!-- 側邊欄 -->
+            <aside class="w-full lg:w-[400px] h-[45vh] lg:h-full bg-white border-r border-slate-200 flex flex-col z-20 shadow-xl overflow-hidden">
+                <div class="p-6 md:p-8 border-b border-slate-100 flex-shrink-0">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex items-baseline gap-2">
+                            <span class="text-4xl md:text-5xl font-black tracking-tighter text-slate-200">01</span>
+                            <h1 class="text-2xl md:text-3xl font-black tracking-widest text-slate-900">嘉義</h1>
+                        </div>
+                        <button onclick="backToLanding()" class="text-xs font-black text-slate-400 hover:text-slate-900 transition-colors uppercase tracking-widest">Exit</button>
                     </div>
-                    <p class="text-xs tracking-[0.2em] font-bold text-orange-500 uppercase mb-6">Daily Food Map / SE Asia</p>
+
+                    <!-- 分頁切換器 -->
+                    <div class="flex border-2 border-slate-900 mb-6 bg-slate-100">
+                        <button onclick="switchTab('map')" id="tab-map" class="flex-1 py-2 text-[10px] font-black tracking-widest uppercase transition-all bg-slate-900 text-white">Explore Map</button>
+                        <button onclick="switchTab('stamp')" id="tab-stamp" class="flex-1 py-2 text-[10px] font-black tracking-widest uppercase transition-all hover:bg-slate-200">Stamp Records</button>
+                    </div>
                     
+                    <!-- 篩選器 -->
                     <div class="flex flex-wrap gap-2">
-                        <button onclick="filterShops('all')" id="btn-all" class="px-4 py-1 text-xs font-bold border border-slate-900 bg-slate-900 text-white transition-all">ALL</button>
-                        <button onclick="filterShops('indonesia')" id="btn-indo" class="px-4 py-1 text-xs font-bold border border-slate-900 hover:bg-slate-900 hover:text-white transition-all">INDONESIA</button>
-                        <button onclick="filterShops('vietnam')" id="btn-viet" class="px-4 py-1 text-xs font-bold border border-slate-900 hover:bg-slate-900 hover:text-white transition-all">VIETNAM</button>
+                        <button onclick="filterShops('all')" id="btn-all" class="px-3 py-1 text-[10px] font-bold border border-slate-900 bg-slate-900 text-white transition-all">ALL</button>
+                        <button onclick="filterShops('indonesia')" id="btn-indo" class="px-3 py-1 text-[10px] font-bold border border-slate-900 hover:bg-slate-900 hover:text-white transition-all">INDONESIA</button>
+                        <button onclick="filterShops('vietnam')" id="btn-viet" class="px-3 py-1 text-[10px] font-bold border border-slate-900 hover:bg-slate-900 hover:text-white transition-all">VIETNAM</button>
                     </div>
                 </div>
 
-                <div id="shop-list" class="flex-1 overflow-y-auto no-scrollbar">
-                    <!-- 店家卡片將在此生成 -->
+                <!-- 內容顯示區域 -->
+                <div class="flex-1 overflow-hidden relative">
+                    <!-- 店家列表 -->
+                    <div id="shop-list" class="absolute inset-0 overflow-y-auto no-scrollbar transition-transform duration-500">
+                        <!-- 店家卡片在此 -->
+                    </div>
+
+                    <!-- 集章進度頁面 (隱藏) -->
+                    <div id="stamp-list" class="absolute inset-0 overflow-y-auto no-scrollbar bg-slate-50 translate-x-full transition-transform duration-500 p-6">
+                        <div class="mb-8 border-b-2 border-slate-900 pb-4">
+                            <div class="flex justify-between text-[10px] font-black text-slate-500 mb-2">
+                                <span>ADVENTURE PROGRESS</span>
+                                <span id="progress-text">0/12</span>
+                            </div>
+                            <div class="h-4 bg-white border-2 border-slate-900 p-0.5">
+                                <div id="progress-bar" class="progress-bar-fill h-full bg-orange-500" style="width: 0%"></div>
+                            </div>
+                        </div>
+                        <div id="stamp-grid" class="space-y-4">
+                            <!-- 集章小卡在此 -->
+                        </div>
+                    </div>
                 </div>
 
-                <div class="p-6 bg-slate-50 text-[10px] tracking-widest font-medium text-slate-400 border-t border-slate-100">
+                <div class="p-4 bg-slate-50 text-[9px] tracking-widest font-medium text-slate-400 border-t border-slate-100">
                     DESIGN INSPIRED BY TAINAN EAST DISTRICT AESTHETICS
                 </div>
             </aside>
 
-            <!-- 地圖區域 (右) -->
-            <main class="flex-1 relative bg-white">
+            <!-- 地圖區域 -->
+            <main class="flex-1 relative bg-white h-[55vh] lg:h-full overflow-hidden">
                 <div id="map" class="h-full w-full"></div>
-                
-                <!-- 裝飾文字 -->
-                <div class="absolute top-10 right-10 z-[1000] pointer-events-none hidden md:block">
-                    <div class="flex gap-4">
-                        <div class="vertical-text text-6xl font-black text-slate-100 uppercase opacity-50">Chiayi City</div>
-                        <div class="vertical-text text-2xl font-bold text-orange-500 opacity-80 mt-12">日常飲食地圖</div>
+                <div class="absolute bottom-6 left-6 lg:bottom-10 lg:left-10 z-[1000] bg-white border border-slate-900 p-4 lg:p-6 shadow-[6px_6px_0px_rgba(0,0,0,1)]">
+                    <h4 class="font-black text-[10px] lg:text-sm mb-3 tracking-widest border-b border-slate-200 pb-2 uppercase">Map Legend</h4>
+                    <div class="space-y-2 lg:space-y-3 text-[9px] lg:text-xs font-bold tracking-widest uppercase">
+                        <div class="flex items-center gap-3"><span class="w-3 h-3 bg-orange-500 border border-slate-900"></span>Indonesia</div>
+                        <div class="flex items-center gap-3"><span class="w-3 h-3 bg-emerald-500 border border-slate-900"></span>Vietnam</div>
                     </div>
                 </div>
-
-                <!-- 圖例 -->
-                <div class="absolute bottom-10 left-10 z-[1000] bg-white border border-slate-900 p-6 shadow-[8px_8px_0px_rgba(0,0,0,1)]">
-                    <h4 class="font-black text-sm mb-4 tracking-widest border-b border-slate-200 pb-2">MAP LEGEND</h4>
-                    <div class="space-y-3">
-                        <div class="flex items-center gap-3">
-                            <span class="w-4 h-4 bg-orange-500 border border-slate-900"></span>
-                            <span class="text-xs font-bold tracking-widest uppercase">INDONESIA 印尼</span>
-                        </div>
-                        <div class="flex items-center gap-3">
-                            <span class="w-4 h-4 bg-emerald-500 border border-slate-900"></span>
-                            <span class="text-xs font-bold tracking-widest uppercase">VIETNAM 越南</span>
-                        </div>
-                    </div>
+                <div class="absolute top-10 right-10 z-[1000] pointer-events-none hidden md:block opacity-30">
+                    <div class="vertical-text text-6xl font-black text-slate-200">CHIAYI CITY</div>
                 </div>
             </main>
         </div>
@@ -130,104 +304,184 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
         const shops = [
-            { id: 1, type: 'indonesia', name: 'Toko indo Nely', addr: '嘉義市西區中山路 (嘉義火車站前)', lat: 23.4795, lng: 120.4402, note: '印尼百貨與日常飲食', url: 'https://www.google.com/maps/search/?api=1&query=Toko+indo+Nely+Chiayi' },
-            { id: 2, type: 'indonesia', name: 'Warung Indo Podomoro', addr: '嘉義市西區仁愛路附近', lat: 23.4812, lng: 120.4415, note: '道地印尼菜餚', url: 'https://www.google.com/maps/search/?api=1&query=Warung+Indo+Podomoro+chiayi' },
-            { id: 3, type: 'indonesia', name: 'INDEX 南洋百貨(嘉義店)', addr: '嘉義市中山路528號', lat: 23.4790, lng: 120.4408, note: '連鎖東南亞超市', url: 'https://www.google.com/maps/search/?api=1&query=INDEX+南洋百貨(嘉義店)' },
-            { id: 4, type: 'indonesia', name: 'Warung Kita', addr: '嘉義市西區站前區域', lat: 23.4785, lng: 120.4425, note: '印尼風味小吃店', url: 'https://www.google.com/maps/search/?api=1&query=Warung+Kita+Chiayi' },
-            { id: 5, type: 'indonesia', name: 'TOKO TANAH EMAS', addr: '嘉義市西區火車站周邊', lat: 23.4805, lng: 120.4395, note: '印尼移工生活物資與雜貨', url: 'https://www.google.com/maps/search/?api=1&query=TOKO+TANAH+EMAS+CHIAYI' },
-            { id: 6, type: 'indonesia', name: 'Halal Toko Wiwi Restaurant', addr: '嘉義市西區中正路', lat: 23.4778, lng: 120.4412, note: '清真認證印尼餐廳', url: 'https://www.google.com/maps/search/?api=1&query=Halal+Toko+Wiwi+Restaurant' },
-            { id: 7, type: 'vietnam', name: '婉貞越南美食', addr: '嘉義市西區仁愛路', lat: 23.4755, lng: 120.4435, note: '經典越式河粉與春捲', url: 'https://www.google.com/maps/search/?api=1&query=婉貞越南美食' },
-            { id: 8, type: 'vietnam', name: 'A Mai 台越美食', addr: '嘉義市東區', lat: 23.4825, lng: 120.4455, note: '結合台灣口味的越南料理', url: 'https://www.google.com/maps/search/?api=1&query=A+Mai+台越美食' },
-            { id: 9, type: 'vietnam', name: '阿嬌越南雜貨 Tap Hóa Việt Nam', addr: '嘉義市西區', lat: 23.4765, lng: 120.4385, note: '越南食品與調味料專賣', url: 'https://www.google.com/maps/search/?api=1&query=阿嬌越南雜貨+Chiayi' },
-            { id: 10, type: 'vietnam', name: 'TOKO INDO FANGJI', addr: '嘉義市西區', lat: 23.4798, lng: 120.4428, note: '越南/印尼綜合百貨', url: 'https://www.google.com/maps/search/?api=1&query=TOKO+INDO+FANGJI' },
-            { id: 11, type: 'vietnam', name: '越南咖啡和現打果汁', addr: '嘉義市西區站前區域', lat: 23.4808, lng: 120.4442, note: '越式煉乳咖啡與新鮮果汁', url: 'https://www.google.com/maps/search/?api=1&query=嘉義+越南咖啡和現打果汁' },
-            { id: 12, type: 'vietnam', name: '越南美食 QUÁN ĂN VIỆT NAM', addr: '嘉義市西區', lat: 23.4742, lng: 120.4465, note: '正宗越南家常菜', url: 'https://www.google.com/maps/search/?api=1&query=嘉義+越南美食+QUÁN+ĂN+VIỆT+NAM' }
+            { id: 'i1', type: 'indonesia', name: 'Toko indo Nely', addr: '嘉義市西區中山路 (火車站前)', lat: 23.4795, lng: 120.4402, note: '印尼百貨與日常飲食', url: 'https://www.google.com/maps/search/?api=1&query=Toko+indo+Nely+Chiayi' },
+            { id: 'i2', type: 'indonesia', name: 'Warung Indo Podomoro', addr: '嘉義市西區仁愛路附近', lat: 23.4812, lng: 120.4415, note: '道地印尼菜餚', url: 'https://www.google.com/maps/search/?api=1&query=Warung+Indo+Podomoro+chiayi' },
+            { id: 'i3', type: 'indonesia', name: 'INDEX 南洋百貨', addr: '嘉義市中山路528號', lat: 23.4790, lng: 120.4408, note: '火車站前連鎖超市', url: 'https://www.google.com/maps/search/?api=1&query=INDEX+南洋百貨(嘉義店)' },
+            { id: 'i4', type: 'indonesia', name: 'Warung Kita', addr: '嘉義市西區站前區域', lat: 23.4785, lng: 120.4425, note: '印尼風味小吃店', url: 'https://www.google.com/maps/search/?api=1&query=Warung+Kita+Chiayi' },
+            { id: 'i5', type: 'indonesia', name: 'TOKO TANAH EMAS', addr: '嘉義市西區火車站周邊', lat: 23.4805, lng: 120.4395, note: '印尼移工生活物資', url: 'https://www.google.com/maps/search/?api=1&query=TOKO+TANAH+EMAS+CHIAYI' },
+            { id: 'i6', type: 'indonesia', name: 'Halal Toko Wiwi', addr: '嘉義市西區中正路', lat: 23.4778, lng: 120.4412, note: '清真認證印尼餐廳', url: 'https://www.google.com/maps/search/?api=1&query=Halal+Toko+Wiwi+Restaurant' },
+            { id: 'v1', type: 'vietnam', name: '婉貞越南美食', addr: '嘉義市西區仁愛路', lat: 23.4755, lng: 120.4435, note: '經典越式河粉與春捲', url: 'https://www.google.com/maps/search/?api=1&query=婉貞越南美食' },
+            { id: 'v2', type: 'vietnam', name: 'A Mai 台越美食', addr: '嘉義市東區友愛路', lat: 23.4825, lng: 120.4455, note: '結合台灣口味的越南料理', url: 'https://www.google.com/maps/search/?api=1&query=A+Mai+台越美食' },
+            { id: 'v3', type: 'vietnam', name: '阿嬌越南雜貨', addr: '嘉義市西區新豐街', lat: 23.4765, lng: 120.4385, note: '越南食品與調味料專賣', url: 'https://www.google.com/maps/search/?api=1&query=阿嬌越南雜貨+Chiayi' },
+            { id: 'v4', type: 'vietnam', name: 'TOKO INDO FANGJI', addr: '嘉義市西區中山路', lat: 23.4798, lng: 120.4428, note: '越南/印尼綜合百貨', url: 'https://www.google.com/maps/search/?api=1&query=TOKO+INDO+FANGJI' },
+            { id: 'v5', type: 'vietnam', name: '越南咖啡與現打果汁', addr: '嘉義市西區站前區域', lat: 23.4808, lng: 120.4442, note: '越式煉乳咖啡', url: 'https://www.google.com/maps/search/?api=1&query=嘉義+越南咖啡和現打果汁' },
+            { id: 'v6', type: 'vietnam', name: '越南美食 QUÁN ĂN', addr: '嘉義市西區', lat: 23.4742, lng: 120.4465, note: '正宗越南家常菜', url: 'https://www.google.com/maps/search/?api=1&query=嘉義+越南美食+QUÁN+ĂN+VIỆT+NAM' }
         ];
 
-        let map;
-        let markers = [];
+        let map, markers = [];
         const chiayiCenter = [23.479, 120.441];
+        let checkedItems = JSON.parse(localStorage.getItem('chiayi_food_v2')) || {};
+        let currentFilter = 'all';
+
+        function enterSite() {
+            document.getElementById('landing-page').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('landing-page').style.visibility = 'hidden';
+                document.getElementById('map-page').style.visibility = 'visible';
+                document.getElementById('map-page').style.opacity = '1';
+                if (!map) initMap(); else map.invalidateSize();
+            }, 500);
+        }
+
+        function backToLanding() {
+            document.getElementById('map-page').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('map-page').style.visibility = 'hidden';
+                document.getElementById('landing-page').style.visibility = 'visible';
+                document.getElementById('landing-page').style.opacity = '1';
+            }, 500);
+        }
+
+        function switchTab(tab) {
+            const shopList = document.getElementById('shop-list');
+            const stampList = document.getElementById('stamp-list');
+            const btnMap = document.getElementById('tab-map');
+            const btnStamp = document.getElementById('tab-stamp');
+
+            if (tab === 'map') {
+                shopList.style.transform = 'translateX(0)';
+                stampList.style.transform = 'translateX(100%)';
+                btnMap.className = 'flex-1 py-2 text-[10px] font-black tracking-widest uppercase transition-all bg-slate-900 text-white';
+                btnStamp.className = 'flex-1 py-2 text-[10px] font-black tracking-widest uppercase transition-all hover:bg-slate-200 text-slate-900';
+            } else {
+                shopList.style.transform = 'translateX(-100%)';
+                stampList.style.transform = 'translateX(0)';
+                btnStamp.className = 'flex-1 py-2 text-[10px] font-black tracking-widest uppercase transition-all bg-slate-900 text-white';
+                btnMap.className = 'flex-1 py-2 text-[10px] font-black tracking-widest uppercase transition-all hover:bg-slate-200 text-slate-900';
+                renderStamps();
+            }
+        }
 
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView(chiayiCenter, 15);
             L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CartoDB' }).addTo(map);
             renderMarkers('all');
             renderList('all');
+            renderStamps();
         }
 
         function renderMarkers(filter) {
             markers.forEach(m => map.removeLayer(m));
             markers = [];
-            const filteredShops = filter === 'all' ? shops : shops.filter(s => s.type === filter);
-
-            filteredShops.forEach(shop => {
+            const filtered = filter === 'all' ? shops : shops.filter(s => s.type === filter);
+            filtered.forEach(shop => {
                 const color = shop.type === 'indonesia' ? '#f47321' : '#10b981';
                 const markerHtml = `<div style="background-color: ${color}; width: 12px; height: 12px; border: 2px solid white; outline: 1px solid ${color};"></div>`;
                 const customIcon = L.divIcon({ html: markerHtml, className: '', iconSize: [12, 12], iconAnchor: [6, 6] });
-
-                const marker = L.marker([shop.lat, shop.lng], { icon: customIcon })
-                    .bindPopup(`
-                        <div class="custom-popup p-2">
-                            <h3 class="font-black text-lg mb-1">${shop.name}</h3>
-                            <p class="text-[10px] tracking-widest font-bold mb-2 uppercase" style="color: ${color}">${shop.type}</p>
-                            <p class="text-xs text-slate-600 mb-3">${shop.note}</p>
-                            <a href="${shop.url}" target="_blank" class="inline-block px-3 py-1 bg-slate-900 text-white text-[10px] font-bold tracking-widest">GOOGLE MAPS</a>
-                        </div>
-                    `)
-                    .addTo(map);
+                const marker = L.marker([shop.lat, shop.lng], { icon: customIcon }).bindPopup(`
+                    <div class="p-2">
+                        <h3 class="font-black text-lg mb-1">${shop.name}</h3>
+                        <p class="text-[10px] font-bold uppercase mb-2" style="color: ${color}">${shop.type}</p>
+                        <a href="${shop.url}" target="_blank" class="inline-block px-3 py-1 bg-slate-900 text-white text-[10px] font-black tracking-widest uppercase">Maps</a>
+                    </div>
+                `).addTo(map);
                 markers.push(marker);
             });
         }
 
         function renderList(filter) {
-            const listContainer = document.getElementById('shop-list');
-            listContainer.innerHTML = '';
-            const filteredShops = filter === 'all' ? shops : shops.filter(s => s.type === filter);
-
-            filteredShops.forEach((shop, index) => {
-                const num = (index + 1).toString().padStart(2, '0');
-                const accentColor = shop.type === 'indonesia' ? '#f47321' : '#10b981';
-
+            const list = document.getElementById('shop-list');
+            list.innerHTML = '';
+            const filtered = filter === 'all' ? shops : shops.filter(s => s.type === filter);
+            filtered.forEach((shop, index) => {
+                const color = shop.type === 'indonesia' ? '#f47321' : '#10b981';
                 const card = document.createElement('div');
                 card.className = `shop-card p-6 cursor-pointer flex gap-6 items-start`;
-                card.style.setProperty('--active-color', accentColor);
+                card.style.setProperty('--active-color', color);
                 card.innerHTML = `
-                    <span class="text-2xl font-black opacity-30" style="color: ${accentColor}">${num}</span>
-                    <div class="flex-1">
-                        <div class="flex items-center justify-between mb-1">
-                            <h3 class="font-bold text-lg tracking-tight">${shop.name}</h3>
-                            <a href="${shop.url}" target="_blank" onclick="event.stopPropagation()" class="text-slate-300 hover:text-slate-900">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14L21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg>
-                            </a>
-                        </div>
-                        <p class="text-xs text-slate-400 tracking-wide">${shop.addr}</p>
+                    <span class="text-2xl font-black opacity-30" style="color: ${color}">${(index+1).toString().padStart(2,'0')}</span>
+                    <div>
+                        <h3 class="font-bold text-lg tracking-tight">${shop.name}</h3>
+                        <p class="text-xs text-slate-400">${shop.addr}</p>
                     </div>
                 `;
-                
                 card.onclick = () => {
                     document.querySelectorAll('.shop-card').forEach(c => c.classList.remove('active'));
                     card.classList.add('active');
                     map.setView([shop.lat, shop.lng], 17);
-                    const markerIndex = filteredShops.findIndex(s => s.id === shop.id);
+                    const markerIndex = filtered.findIndex(s => s.id === shop.id);
                     if (markers[markerIndex]) markers[markerIndex].openPopup();
                 };
-                listContainer.appendChild(card);
+                list.appendChild(card);
             });
         }
 
+        function renderStamps() {
+            const grid = document.getElementById('stamp-grid');
+            grid.innerHTML = '';
+            const filtered = currentFilter === 'all' ? shops : shops.filter(s => s.type === currentFilter);
+            
+            filtered.forEach(shop => {
+                const isChecked = checkedItems[shop.id];
+                const color = shop.type === 'indonesia' ? '#f47321' : '#10b981';
+                const card = document.createElement('div');
+                card.className = `stamp-card relative p-4 ${isChecked ? 'checked' : ''}`;
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="text-[10px] font-black px-2 py-0.5 bg-slate-100 text-slate-500 uppercase">${shop.type}</div>
+                        <button onclick="toggleStamp('${shop.id}')" class="text-xl ${isChecked ? 'text-slate-300' : 'text-slate-900 hover:scale-125 transition-transform'}">
+                            <i class="fa-solid ${isChecked ? 'fa-check-circle' : 'fa-circle-plus'}"></i>
+                        </button>
+                    </div>
+                    <h4 class="font-black text-sm mb-1">${shop.name}</h4>
+                    <p class="text-[10px] text-slate-400 leading-tight mb-3">${shop.note}</p>
+                    <div class="flex justify-between items-end">
+                         <span class="text-[10px] font-black italic opacity-20">#RECORD</span>
+                         <a href="${shop.url}" target="_blank" class="w-6 h-6 flex items-center justify-center bg-slate-900 text-white rounded shadow-sm text-[8px]"><i class="fa-solid fa-location-arrow"></i></a>
+                    </div>
+                    ${isChecked ? `<div class="stamp-overlay" style="color: ${color}">完食</div>` : ''}
+                `;
+                grid.appendChild(card);
+            });
+            updateProgress();
+        }
+
+        function toggleStamp(id) {
+            checkedItems[id] = !checkedItems[id];
+            localStorage.setItem('chiayi_food_v2', JSON.stringify(checkedItems));
+            if (checkedItems[id]) {
+                const confetti = document.getElementById('confetti');
+                confetti.classList.remove('hidden');
+                setTimeout(() => confetti.classList.add('hidden'), 1000);
+            }
+            renderStamps();
+        }
+
+        function updateProgress() {
+            const done = Object.values(checkedItems).filter(Boolean).length;
+            const total = shops.length;
+            const per = Math.round((done/total)*100);
+            document.getElementById('progress-text').innerText = `${done}/${total} COMPLETED`;
+            document.getElementById('progress-bar').style.width = `${per}%`;
+        }
+
         function filterShops(type) {
+            currentFilter = type;
             const btns = { 'all': document.getElementById('btn-all'), 'indonesia': document.getElementById('btn-indo'), 'vietnam': document.getElementById('btn-viet') };
             Object.values(btns).forEach(b => { b.classList.remove('bg-slate-900', 'text-white'); b.classList.add('text-slate-900'); });
             btns[type].classList.add('bg-slate-900', 'text-white');
+            
             renderMarkers(type);
             renderList(type);
+            renderStamps();
+
             if (type !== 'all') {
                 const group = new L.featureGroup(markers);
-                map.fitBounds(group.getBounds().pad(0.5));
-            } else { map.setView(chiayiCenter, 15); }
+                if(markers.length > 0) map.fitBounds(group.getBounds().pad(0.5));
+            } else if(map) { 
+                map.setView(chiayiCenter, 15); 
+            }
         }
-
-        window.onload = initMap;
     </script>
 </body>
 </html>
